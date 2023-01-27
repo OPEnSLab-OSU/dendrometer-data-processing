@@ -128,7 +128,7 @@ class DataFormatter:
                 self.deployment_time_map[dendrometer_id]
             )
 
-            df.insert(3, "Adjuted Time", df["Time"] + time_delta)
+            df.insert(3, "Adjusted Time", df["Time"] + time_delta)
         return df
 
     def adjust_flow(self, df: pd.DataFrame) -> pd.DataFrame:
