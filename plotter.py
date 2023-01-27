@@ -31,7 +31,7 @@ class Plotter:
         dend_file_name = str(filename).split("/")[-2:]
         plot_title = f"Dendrometer_{dend_file_name[0]}_{dend_file_name[1]}"
         df.to_csv(
-            f"data/processed/{dend_file_name[0]}_{dend_file_name[1]}.csv"
+            f"data_processed/{dend_file_name[0]}_{dend_file_name[1]}.csv"
         )
 
         plt.figure(dpi=600, figsize=(11.69, 8.27))
