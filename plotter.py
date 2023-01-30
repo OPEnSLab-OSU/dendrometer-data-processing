@@ -30,12 +30,21 @@ class Plotter:
         filename = filename.with_suffix('')
         dend_file_name = str(filename).split("/")[-2:]
         plot_title = f"Dendrometer_{dend_file_name[0]}_{dend_file_name[1]}"
+        df.to_csv(
+            f"data_processed/{dend_file_name[0]}_{dend_file_name[1]}.csv"
+        )
 
         plt.figure(dpi=600, figsize=(11.69, 8.27))
         fig1 = plt.subplot()
         fig1.set_title(plot_title)
-        fig1.plot(df["Time"], df[('AS5311', 'Serial_Value')])
-        fig1.plot(df["Time"], df['Calculated'])
+
+        if "Adjusted Time" in df.columns:
+            fig1.plot(df["Adjusted Time"], df[('AS5311', 'Serial_Value')])
+            fig1.plot(df["Adjusted Time"], df['Calculated Serial'])
+        else:
+            fig1.plot(df["Time"], df[('AS5311', 'Serial_Value')])
+            fig1.plot(df["Time"], df['Calculated Serial'])
+
         fig1.legend(['Raw data', 'Over/Under flow adjusted'])
         fig1.set_xlabel("Time")
         fig1.set_ylabel("Displacement (serial value)")
@@ -58,8 +67,14 @@ class Plotter:
         fig1.set_title(plot_title)
         # fig1.plot(dend1[1]["Time"], dend1[1][('AS5311', 'Serial_Value')])
         # fig1.plot(dend2[1]["Time"], dend2[1][('AS5311', 'Serial_Value')])
-        fig1.plot(dend1[1]["Time"], dend1[1]['Calculated'])
-        fig1.plot(dend2[1]["Time"], dend2[1]['Calculated'])
+
+        if "Adjusted Time" in dend1[1].columns and "Adjusted Time" in dend2[1].columns:
+            fig1.plot(dend1[1]["Adjusted Time"], dend1[1]['Calculated Serial'])
+            fig1.plot(dend2[1]["Adjusted Time"], dend2[1]['Calculated Serial'])
+        else:
+            fig1.plot(dend1[1]["Time"], dend1[1]['Calculated Serial'])
+            fig1.plot(dend2[1]["Time"], dend2[1]['Calculated Serial'])
+
         # fig1.legend([f"{filename1[0]} raw", f"{filename2[0]} raw",
         #             f"{filename1[0]} corrected", f"{filename2[0]} corrected"])
         fig1.legend([f"Dendrometer {filename1[0]} corrected",

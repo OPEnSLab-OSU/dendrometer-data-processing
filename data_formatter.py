@@ -8,7 +8,7 @@ from plotter import Plotter
 
 class DataFormatter:
     def __init__(self) -> None:
-        self.time_offset = {}
+        self.deployment_time_map = {}
         print("Constructor")
 
     def load_deployment_time(self) -> dict:
@@ -16,6 +16,16 @@ class DataFormatter:
         timetable_file = Path.joinpath(cur_path, "data", "deployment_time.csv")
         deployment_time_df = pd.read_csv(timetable_file)
         deployment_time_df = deployment_time_df.fillna("")
+
+        for index, row in deployment_time_df.iterrows():
+            if not row["Start Date"] or not row["Start Time"]:
+                continue
+            timestamp = pd.to_datetime(row["Start Date"] +
+                                       ' ' +
+                                       row["Start Time"])
+
+            timestamp = timestamp.tz_localize(None)
+            self.deployment_time_map[str(row["Device ID"])] = timestamp
 
     def find_valid_files(self, min_file_size: int = 1000000) -> dict:
         """
@@ -42,46 +52,44 @@ class DataFormatter:
 
         return folder_file_map
 
-    def get_time_differences(self, folders: dict):
-        times = []
-        for files in folders.values():
-            for file in files:
-                first_entry = linecache.getline(Path.as_posix(file), 3)
-                linecache.clearcache()
-
-                time_entry = first_entry.split(",")[2:4]
-                cur_time = pd.to_datetime(time_entry[0] + " " + time_entry[1])
-                print(cur_time)
-                times.append(cur_time)
-
-        return times
+    def get_time_delta(self, df: pd.DataFrame, deploy_time: pd.Timestamp):
+        # print(type(df.iloc[0]["Time"].item()))
+        print("-", deploy_time, df.iloc[0]["Time"].item())
+        print("- Time delta:", pd.Timedelta(
+            deploy_time - df.iloc[0]["Time"].item()))
+        return pd.Timedelta(deploy_time - df.iloc[0]["Time"].item())
 
     def l1_formatting(self, folders: dict):
-        dfs = {}
+        dfs = {}  # Dataframes
+        self.load_deployment_time()
 
         for folder in folders.keys():
+            print("-------------------------------------------")
             print(folder)
             for file in folders[folder]:
+                dendrometer_id = str(file).split("/")[-2]
+
                 df = pd.read_csv(Path.as_posix(file), header=[0, 1])
                 df = self._initial_formatting(df)
-                df = self._fix_timestamp(df)
-                # df = self.adjust_flow(df)
+                df = self._fix_timestamp(df, dendrometer_id)
+                df = self.adjust_flow(df)
 
-                # dendrometer_id = str(file).split("/")[-2]
-                # dfs[dendrometer_id] = (file, df.copy())
+                dfs[dendrometer_id] = (file, df.copy())
+                print(df.head())
+            print("-------------------------------------------")
 
-        # plotter = Plotter()
-        # pair_mapping = plotter.get_pair_mapping()
+        plotter = Plotter()
+        pair_mapping = plotter.get_pair_mapping()
 
-        # for _, (filename, df) in dfs.items():
-        #     plotter.save_plot(filename, df)
+        for _, (filename, df) in dfs.items():
+            plotter.save_plot(filename, df)
 
-        # for pair in pair_mapping.values():
-        #     dend1, dend2 = pair
-        #     dend1, dend2 = str(dend1), str(dend2)
+        for pair in pair_mapping.values():
+            dend1, dend2 = pair
+            dend1, dend2 = str(dend1), str(dend2)
 
-        #     if dend1 in dfs and dend2 in dfs:
-        #         plotter.save_plot_pair(dfs[str(dend1)], dfs[str(dend2)])
+            if dend1 in dfs and dend2 in dfs:
+                plotter.save_plot_pair(dfs[str(dend1)], dfs[str(dend2)])
 
     def _initial_formatting(self, df):
         # Change column names
@@ -92,7 +100,7 @@ class DataFormatter:
         df = df.iloc[:, :-1]
         return df
 
-    def _fix_timestamp(self, df: pd.DataFrame):
+    def _fix_timestamp(self, df: pd.DataFrame, dendrometer_id):
         date_time_combined = pd.to_datetime(
             df[("Timestamp", "date")] +
             ' ' +
@@ -103,22 +111,30 @@ class DataFormatter:
                 ("Timestamp", "time")], inplace=True)
 
         df.insert(2, "Time", date_time_combined)
-        print("--------------------------------------------------------")
-        print(df.head(2))
 
+        """
+        dt.tz_localize(tz="GMT"): assigns the current time stamp to be in GMT
+        dt.tz_convert(tz="America/Los_Angeles"): converts GMT to Pacific Daylight Time (Data is from summer)
+        dt.tz_localize(None): strips it back down to naive timestamp so it doesn't have the -7 at the end
+        """
         df["Time"] = pd.to_datetime(df["Time"])  \
                        .dt.tz_localize(tz="GMT") \
-                       .dt.tz_convert(tz="America/Los_Angeles")
-        print(df.head(2))
-        print(df.dtypes)
-        print("--------------------------------------------------------")
+                       .dt.tz_convert(tz="America/Los_Angeles") \
+                       .dt.tz_localize(None)
 
+        if dendrometer_id in self.deployment_time_map:
+            time_delta = self.get_time_delta(
+                df,
+                self.deployment_time_map[dendrometer_id]
+            )
+
+            df.insert(3, "Adjusted Time", df["Time"] + time_delta)
         return df
 
     def adjust_flow(self, df: pd.DataFrame) -> pd.DataFrame:
         prev_idx, prev_serial = 0, df.iloc[0][('AS5311', 'Serial_Value')]
         initial, wrap = df.iloc[0][('AS5311', 'Serial_Value')], 0
-        df.at[0, 'Calculated'] = 0
+        df.at[0, 'Calculated Serial'] = 0
 
         cur_idx = 1
         while cur_idx < df.shape[0]:
@@ -132,19 +148,19 @@ class DataFormatter:
             if abs(change) > 2000:
                 # Wrap up
                 if change < 0:
-                    print("-- Wrapped up", prev_serial, cur_serial, change)
+                    print("  -- Wrapped up", prev_serial, cur_serial, change)
                     wrap += 4095
 
                 # Wrap down
                 elif change > 0:
-                    print("-- Wrapped down", prev_serial, cur_serial, change)
+                    print("  -- Wrapped down", prev_serial, cur_serial, change)
                     wrap -= 4095
 
             # Calculate the displacement data
             calculated_serial_data = cur_serial + wrap - initial
 
             # Data to use in the plot
-            df.at[cur_idx, 'Calculated'] = calculated_serial_data
+            df.at[cur_idx, 'Calculated Serial'] = calculated_serial_data
 
             prev_serial = cur_serial
             prev_idx = cur_idx
@@ -171,9 +187,7 @@ class DataFormatter:
 def main():
     formatter = DataFormatter()
     files = formatter.find_valid_files()
-    # formatter.get_time_differences(files)
     formatter.l1_formatting(files)
-    # formatter.load_deployment_time()
 
 
 if __name__ == "__main__":
