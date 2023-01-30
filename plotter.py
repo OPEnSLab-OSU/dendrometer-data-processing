@@ -7,6 +7,9 @@ from typing import List, Tuple, Dict
 
 class Plotter:
     def __init__(self) -> None:
+        return
+
+    def load_deployment_map(self):
         cur_path = Path.cwd()
         deployment_file = Path.joinpath(cur_path, "data", "deployment.csv")
         deployment_df = pd.read_csv(deployment_file)
@@ -65,8 +68,6 @@ class Plotter:
         plt.figure(dpi=600, figsize=(11.69, 8.27))
         fig1 = plt.subplot()
         fig1.set_title(plot_title)
-        # fig1.plot(dend1[1]["Time"], dend1[1][('AS5311', 'Serial_Value')])
-        # fig1.plot(dend2[1]["Time"], dend2[1][('AS5311', 'Serial_Value')])
 
         if "Adjusted Time" in dend1[1].columns and "Adjusted Time" in dend2[1].columns:
             fig1.plot(dend1[1]["Adjusted Time"], dend1[1]['Calculated Serial'])
@@ -75,8 +76,6 @@ class Plotter:
             fig1.plot(dend1[1]["Time"], dend1[1]['Calculated Serial'])
             fig1.plot(dend2[1]["Time"], dend2[1]['Calculated Serial'])
 
-        # fig1.legend([f"{filename1[0]} raw", f"{filename2[0]} raw",
-        #             f"{filename1[0]} corrected", f"{filename2[0]} corrected"])
         fig1.legend([f"Dendrometer {filename1[0]} corrected",
                     f"Dendrometer {filename2[0]} corrected"])
 

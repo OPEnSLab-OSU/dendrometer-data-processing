@@ -79,6 +79,7 @@ class DataFormatter:
             print("-------------------------------------------")
 
         plotter = Plotter()
+        plotter.load_deployment_map()
         pair_mapping = plotter.get_pair_mapping()
 
         for _, (filename, df) in dfs.items():
