@@ -7,6 +7,9 @@ from typing import List, Tuple, Dict
 
 class Plotter:
     def __init__(self) -> None:
+        return
+
+    def load_deployment_map(self):
         cur_path = Path.cwd()
         deployment_file = Path.joinpath(cur_path, "data", "deployment.csv")
         deployment_df = pd.read_csv(deployment_file)
@@ -65,8 +68,6 @@ class Plotter:
         plt.figure(dpi=600, figsize=(11.69, 8.27))
         fig1 = plt.subplot()
         fig1.set_title(plot_title)
-        # fig1.plot(dend1[1]["Time"], dend1[1][('AS5311', 'Serial_Value')])
-        # fig1.plot(dend2[1]["Time"], dend2[1][('AS5311', 'Serial_Value')])
 
         if "Adjusted Time" in dend1[1].columns and "Adjusted Time" in dend2[1].columns:
             fig1.plot(dend1[1]["Adjusted Time"], dend1[1]['Calculated Serial'])
@@ -75,12 +76,46 @@ class Plotter:
             fig1.plot(dend1[1]["Time"], dend1[1]['Calculated Serial'])
             fig1.plot(dend2[1]["Time"], dend2[1]['Calculated Serial'])
 
-        # fig1.legend([f"{filename1[0]} raw", f"{filename2[0]} raw",
-        #             f"{filename1[0]} corrected", f"{filename2[0]} corrected"])
         fig1.legend([f"Dendrometer {filename1[0]} corrected",
                     f"Dendrometer {filename2[0]} corrected"])
 
         fig1.set_xlabel("Time")
         fig1.set_ylabel("Displacement (serial value)")
         plt.savefig(f"data/pairs/{plot_title}.pdf")
+        plt.close()
+
+    def save_plot_vpd(self, filename, df: pd.DataFrame) -> None:
+        filename = filename.with_suffix('')
+        dend_file_name = str(filename).split("/")[-2:]
+        plot_title = f"Dendrometer_{dend_file_name[0]}_{dend_file_name[1]}"
+
+        plt.figure(dpi=600, figsize=(11.69, 8.27))
+        fig1, ax1 = plt.subplots()
+        ax2 = ax1.twinx()
+        fig1.suptitle(plot_title)
+
+        if "Adjusted Time" in df.columns:
+            ax1.plot(df["Adjusted Time"],
+                     df['Calculated Serial'], color="orange")
+
+            ax2.fill_between(df["Adjusted Time"], df["VPD"].values.flatten(),
+                             color="skyblue", alpha=0.4)
+            # ax2.plot(df["Adjusted Time"], df['VPD'])
+        else:
+            ax1.plot(df["Time"], df['Calculated Serial'], color="orange")
+
+            ax2.fill_between(df["Time"], df["VPD"].values.flatten(),
+                             color="skyblue", alpha=0.4)
+            # ax2.plot(df["Time"], df['VPD'])
+
+        fig1.legend(['Serial', 'VPD'])
+
+        ax1.set_xlabel("Time")
+        ax1.set_ylabel("Displacement (serial value)")
+
+        ax2.set_ylabel("VPD")
+
+        plt.savefig(
+            f"data_processed/vpd/{dend_file_name[0]}_{dend_file_name[1]}_vpd.pdf"
+        )
         plt.close()

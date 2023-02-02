@@ -75,14 +75,18 @@ class DataFormatter:
                 df = self.adjust_flow(df)
 
                 dfs[dendrometer_id] = (file, df.copy())
-                print(df.head())
+                # print(df.head())
+                # print(type(df["VPD"].values.flatten()),
+                #       df["VPD"].values.flatten())
             print("-------------------------------------------")
 
         plotter = Plotter()
+        plotter.load_deployment_map()
         pair_mapping = plotter.get_pair_mapping()
 
         for _, (filename, df) in dfs.items():
             plotter.save_plot(filename, df)
+            plotter.save_plot_vpd(filename, df)
 
         for pair in pair_mapping.values():
             dend1, dend2 = pair
@@ -113,12 +117,12 @@ class DataFormatter:
         df.insert(2, "Time", date_time_combined)
 
         """
-        dt.tz_localize(tz="GMT"): assigns the current time stamp to be in GMT
-        dt.tz_convert(tz="America/Los_Angeles"): converts GMT to Pacific Daylight Time (Data is from summer)
+        dt.tz_localize(tz="GMT"): assigns the current time stamp to be in UTC
+        dt.tz_convert(tz="America/Los_Angeles"): converts UTC to Pacific Daylight Time (Data is from summer)
         dt.tz_localize(None): strips it back down to naive timestamp so it doesn't have the -7 at the end
         """
         df["Time"] = pd.to_datetime(df["Time"])  \
-                       .dt.tz_localize(tz="GMT") \
+                       .dt.tz_localize(tz="UTC") \
                        .dt.tz_convert(tz="America/Los_Angeles") \
                        .dt.tz_localize(None)
 
