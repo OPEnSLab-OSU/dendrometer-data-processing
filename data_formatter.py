@@ -53,7 +53,6 @@ class DataFormatter:
         return folder_file_map
 
     def get_time_delta(self, df: pd.DataFrame, deploy_time: pd.Timestamp):
-        # print(type(df.iloc[0]["Time"].item()))
         print("-", deploy_time, df.iloc[0]["Time"].item())
         print("- Time delta:", pd.Timedelta(
             deploy_time - df.iloc[0]["Time"].item()))
@@ -76,8 +75,6 @@ class DataFormatter:
 
                 dfs[dendrometer_id] = (file, df.copy())
                 # print(df.head())
-                # print(type(df["VPD"].values.flatten()),
-                #       df["VPD"].values.flatten())
             print("-------------------------------------------")
 
         plotter = Plotter()
@@ -87,6 +84,7 @@ class DataFormatter:
         for _, (filename, df) in dfs.items():
             plotter.save_plot(filename, df)
             plotter.save_plot_vpd(filename, df)
+            plotter.save_csv(filename, df)
 
         for pair in pair_mapping.values():
             dend1, dend2 = pair
@@ -171,21 +169,6 @@ class DataFormatter:
             cur_idx += 1
 
         return df
-
-    def save_plot(self, df: pd.DataFrame, filename) -> None:
-        filename = filename.with_suffix('')
-        dend_file_name = str(filename).split("/")[-2:]
-        plot_title = f"Dendrometer_{dend_file_name[0]}_{dend_file_name[1]}"
-
-        plt.figure(dpi=600, figsize=(11.69, 8.27))
-        fig1 = plt.subplot()
-        fig1.set_title(plot_title)
-        fig1.plot(df["Time"], df[('AS5311', 'Serial_Value')])
-        fig1.plot(df["Time"], df['Calculated'])
-        fig1.legend(['Raw data', 'Over/Under flow adjusted'])
-        fig1.set_xlabel("Time")
-        fig1.set_ylabel("Displacement (serial value)")
-        plt.savefig(f"data/{dend_file_name[0]}/{dend_file_name[1]}.pdf")
 
 
 def main():

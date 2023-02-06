@@ -29,13 +29,21 @@ class Plotter:
     def get_pair_mapping(self):
         return self.pairs
 
+    def save_csv(self, filename, df: pd.DataFrame) -> None:
+        filename = filename.with_suffix('')
+        dend_file_name = str(filename).split("/")[-2:]
+
+        Path(Path.joinpath(Path.cwd(), "data_processed", "csv")) \
+            .mkdir(parents=True, exist_ok=True)
+
+        df.to_csv(
+            f"data_processed/csv/{dend_file_name[0]}_{dend_file_name[1]}.csv"
+        )
+
     def save_plot(self, filename, df: pd.DataFrame) -> None:
         filename = filename.with_suffix('')
         dend_file_name = str(filename).split("/")[-2:]
         plot_title = f"Dendrometer_{dend_file_name[0]}_{dend_file_name[1]}"
-        df.to_csv(
-            f"data_processed/{dend_file_name[0]}_{dend_file_name[1]}.csv"
-        )
 
         plt.figure(dpi=600, figsize=(11.69, 8.27))
         fig1 = plt.subplot()
@@ -51,7 +59,12 @@ class Plotter:
         fig1.legend(['Raw data', 'Over/Under flow adjusted'])
         fig1.set_xlabel("Time")
         fig1.set_ylabel("Displacement (serial value)")
-        plt.savefig(f"data/{dend_file_name[0]}/{dend_file_name[1]}.pdf")
+
+        Path(Path.joinpath(Path.cwd(), "data_processed", "single")) \
+            .mkdir(parents=True, exist_ok=True)
+        plt.savefig(
+            f"data_processed/single/{dend_file_name[0]}_{dend_file_name[1]}.pdf")
+
         plt.close()
 
     def save_plot_pair(self,
@@ -81,7 +94,11 @@ class Plotter:
 
         fig1.set_xlabel("Time")
         fig1.set_ylabel("Displacement (serial value)")
-        plt.savefig(f"data/pairs/{plot_title}.pdf")
+
+        Path(Path.joinpath(Path.cwd(), "data_processed", "pairs")) \
+            .mkdir(parents=True, exist_ok=True)
+        plt.savefig(f"data_processed/pairs/{plot_title}.pdf")
+
         plt.close()
 
     def save_plot_vpd(self, filename, df: pd.DataFrame) -> None:
@@ -100,13 +117,11 @@ class Plotter:
 
             ax2.fill_between(df["Adjusted Time"], df["VPD"].values.flatten(),
                              color="skyblue", alpha=0.4)
-            # ax2.plot(df["Adjusted Time"], df['VPD'])
         else:
             ax1.plot(df["Time"], df['Calculated Serial'], color="orange")
 
             ax2.fill_between(df["Time"], df["VPD"].values.flatten(),
                              color="skyblue", alpha=0.4)
-            # ax2.plot(df["Time"], df['VPD'])
 
         fig1.legend(['Serial', 'VPD'])
 
@@ -115,7 +130,11 @@ class Plotter:
 
         ax2.set_ylabel("VPD")
 
+        Path(Path.joinpath(Path.cwd(), "data_processed", "vpd")) \
+            .mkdir(parents=True, exist_ok=True)
+
         plt.savefig(
             f"data_processed/vpd/{dend_file_name[0]}_{dend_file_name[1]}_vpd.pdf"
         )
-        plt.close()
+
+        plt.close('all')
