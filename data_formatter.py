@@ -27,7 +27,7 @@ class DataFormatter:
             timestamp = timestamp.tz_localize(None)
             self.deployment_time_map[str(row["Device ID"])] = timestamp
 
-    def find_valid_files(self, min_file_size: int = 1000000) -> dict:
+    def find_valid_files(self, min_file_size: int = 5000) -> dict:
         """
         Find the valid data files inside the data folder
 
@@ -36,9 +36,12 @@ class DataFormatter:
 
         cur_path = Path.cwd()
         data_path = Path.joinpath(cur_path, "data")
+        # files = [file for file in Path(data_path).glob("*.csv")]
         folders = [folder for folder in data_path.iterdir() if folder.is_dir()]
+
         folder_file_map = defaultdict(list)
 
+        # Folder substrcuture
         for folder in folders:
             files_path = Path.joinpath(data_path, folder)
             files = [file for file in Path(files_path).glob("*.csv")]
@@ -60,13 +63,16 @@ class DataFormatter:
 
     def l1_formatting(self, folders: dict):
         dfs = {}  # Dataframes
-        self.load_deployment_time()
+        # self.load_deployment_time()
 
         for folder in folders.keys():
             print("-------------------------------------------")
             print(folder)
             for file in folders[folder]:
-                dendrometer_id = str(file).split("/")[-2]
+                print(file)
+                filename = file.stem
+                dendrometer_id = str(filename).split(" ")[-1]
+                print(dendrometer_id)
 
                 df = pd.read_csv(Path.as_posix(file), header=[0, 1])
                 df = self._initial_formatting(df)
@@ -78,20 +84,12 @@ class DataFormatter:
             print("-------------------------------------------")
 
         plotter = Plotter()
-        plotter.load_deployment_map()
-        pair_mapping = plotter.get_pair_mapping()
+        print(dfs.keys())
 
         for _, (filename, df) in dfs.items():
             plotter.save_plot(filename, df)
             plotter.save_plot_vpd(filename, df)
             plotter.save_csv(filename, df)
-
-        for pair in pair_mapping.values():
-            dend1, dend2 = pair
-            dend1, dend2 = str(dend1), str(dend2)
-
-            if dend1 in dfs and dend2 in dfs:
-                plotter.save_plot_pair(dfs[str(dend1)], dfs[str(dend2)])
 
     def _initial_formatting(self, df):
         # Change column names
@@ -104,8 +102,7 @@ class DataFormatter:
 
     def _fix_timestamp(self, df: pd.DataFrame, dendrometer_id):
         date_time_combined = pd.to_datetime(
-            df[("Timestamp", "date")] +
-            ' ' +
+            df[("Timestamp", "date")] + " " +
             df[("Timestamp", "time")])
 
         df.drop(columns=[
@@ -133,10 +130,20 @@ class DataFormatter:
             df.insert(3, "Adjusted Time", df["Time"] + time_delta)
         return df
 
+    # Calculate micrometer from serial data
+    def calculate_um(self, cur_serial):
+        serial_period = 4096    # A
+        um_period = 2000        # B
+        # Let cur_serial => X
+        # Y = X * (B / A)
+        cur_displacement = cur_serial * (um_period / serial_period)
+        return cur_displacement
+
     def adjust_flow(self, df: pd.DataFrame) -> pd.DataFrame:
         prev_idx, prev_serial = 0, df.iloc[0][('AS5311', 'Serial_Value')]
         initial, wrap = df.iloc[0][('AS5311', 'Serial_Value')], 0
         df.at[0, 'Calculated Serial'] = 0
+        df.at[0, 'Calculated Displacement um'] = 0
 
         cur_idx = 1
         while cur_idx < df.shape[0]:
@@ -163,6 +170,8 @@ class DataFormatter:
 
             # Data to use in the plot
             df.at[cur_idx, 'Calculated Serial'] = calculated_serial_data
+            df.at[cur_idx, 'Calculated Displacement um'] = self.calculate_um(
+                calculated_serial_data)
 
             prev_serial = cur_serial
             prev_idx = cur_idx

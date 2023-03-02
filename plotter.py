@@ -113,20 +113,21 @@ class Plotter:
 
         if "Adjusted Time" in df.columns:
             ax1.plot(df["Adjusted Time"],
-                     df['Calculated Serial'], color="orange")
+                     df['Calculated Displacement um'], color="orange")
 
             ax2.fill_between(df["Adjusted Time"], df["VPD"].values.flatten(),
                              color="skyblue", alpha=0.4)
         else:
-            ax1.plot(df["Time"], df['Calculated Serial'], color="orange")
+            ax1.plot(df["Time"], df['Calculated Displacement um'],
+                     color="orange")
 
             ax2.fill_between(df["Time"], df["VPD"].values.flatten(),
                              color="skyblue", alpha=0.4)
 
-        fig1.legend(['Serial', 'VPD'])
+        fig1.legend(['Displacement', 'VPD'])
 
         ax1.set_xlabel("Time")
-        ax1.set_ylabel("Displacement (serial value)")
+        ax1.set_ylabel("Displacement (um)")
 
         ax2.set_ylabel("VPD")
 
