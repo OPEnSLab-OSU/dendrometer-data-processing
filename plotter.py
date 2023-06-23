@@ -1,5 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from pathlib import Path
 from collections import defaultdict
 from typing import List, Tuple, Dict
@@ -46,16 +47,27 @@ class Plotter:
         plot_title = f"Dendrometer_{dend_file_name[0]}_{dend_file_name[1]}"
 
         plt.figure(dpi=600, figsize=(11.69, 8.27))
+        
+        
+        # plt.subplots_adjust(bottom=0.2)
+        plt.xticks(rotation=25)
+        
         fig1 = plt.subplot()
         fig1.set_title(plot_title)
 
-        if "Adjusted Time" in df.columns:
-            fig1.plot(df["Adjusted Time"], df[('AS5311', 'Serial_Value')])
-            fig1.plot(df["Adjusted Time"], df['Calculated Serial'])
-        else:
-            fig1.plot(df["Time"], df[('AS5311', 'Serial_Value')])
-            fig1.plot(df["Time"], df['Calculated Serial'])
 
+
+        days = mdates.DayLocator(interval=1)
+        fig1.xaxis.set_major_locator(days)
+        days_ = mdates.DateFormatter('%b/%d')        
+        fig1.xaxis.set_major_formatter(days_)
+        
+        # fig1.grid(True)
+
+
+        fig1.plot(df[('timestamp', 'time_local')], df[('AS5311', 'pos_raw')])
+        # fig1.plot(df["Time"], df['Calculated Serial'])
+        
         fig1.legend(['Raw data', 'Over/Under flow adjusted'])
         fig1.set_xlabel("Time")
         fig1.set_ylabel("Displacement (serial value)")
@@ -66,6 +78,7 @@ class Plotter:
             f"data_processed/single/{dend_file_name[0]}_{dend_file_name[1]}.pdf")
 
         plt.close()
+
 
     def save_plot_pair(self,
                        dend1: Tuple[str, pd.DataFrame],

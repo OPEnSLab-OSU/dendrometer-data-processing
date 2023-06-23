@@ -1,6 +1,0 @@
-ID,,Timestamp,,Packet,Analog,SHT31D,,AS5311,Displacement_mm,Displacement_um,Difference_mm,Difference_um,Status,VPD,RSSI,Button,
-name,instance,date,time,Number,Vbat,temp,humid,Serial_Value,mm,um,mm,um,Color,VPD,RSSI,Pressed?,
-Dendro,5,2022/4/30,19:11:15,1,4.17,19.42,52.45,2498,0.00,0.98,0.00,0.98,Green,1.07,0.00,0,
-Dendro,5,2022/4/30,19:12:26,2,4.17,19.66,48.43,2497,0.00,0.49,-0.00,-0.49,Green,1.18,0.00,1,
-Dendro,5,2022/4/30,19:28:2,3,4.17,19.38,52.30,2467,-0.01,-14.16,-0.01,-14.65,Green,1.07,-99.00,1,
-Dendro,5,2022/4/30,19:43:5,4,4.17,19.14,46.88,2442,-0.03,-26.37,-0.01,-12.21,Green,1.18,-99.00,0,

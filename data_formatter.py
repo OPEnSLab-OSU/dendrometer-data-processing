@@ -6,12 +6,21 @@ import linecache
 from plotter import Plotter
 
 
+DEFAULT_FILE_SIZE = 100
+
+
 class DataFormatter:
     def __init__(self) -> None:
         self.deployment_time_map = {}
-        print("Constructor")
 
+
+    
     def load_deployment_time(self) -> dict:
+        """
+        Funtion used to correct the time column from csv files.
+        Depends on a file called deployment_time.csv to get the correct initial timings.
+        """
+        
         cur_path = Path.cwd()
         timetable_file = Path.joinpath(cur_path, "data", "deployment_time.csv")
         deployment_time_df = pd.read_csv(timetable_file)
@@ -26,8 +35,9 @@ class DataFormatter:
 
             timestamp = timestamp.tz_localize(None)
             self.deployment_time_map[str(row["Device ID"])] = timestamp
+            
 
-    def find_valid_files(self, min_file_size: int = 1000000) -> dict:
+    def find_valid_files(self, min_file_size: int = DEFAULT_FILE_SIZE) -> dict:
         """
         Find the valid data files inside the data folder
 
@@ -52,87 +62,23 @@ class DataFormatter:
 
         return folder_file_map
 
-    def get_time_delta(self, df: pd.DataFrame, deploy_time: pd.Timestamp):
-        print("-", deploy_time, df.iloc[0]["Time"].item())
-        print("- Time delta:", pd.Timedelta(
-            deploy_time - df.iloc[0]["Time"].item()))
-        return pd.Timedelta(deploy_time - df.iloc[0]["Time"].item())
-
-    def l1_formatting(self, folders: dict):
-        dfs = {}  # Dataframes
-        self.load_deployment_time()
-
-        for folder in folders.keys():
-            print("-------------------------------------------")
-            print(folder)
-            for file in folders[folder]:
-                dendrometer_id = str(file).split("/")[-2]
-
-                df = pd.read_csv(Path.as_posix(file), header=[0, 1])
-                df = self._initial_formatting(df)
-                df = self._fix_timestamp(df, dendrometer_id)
-                df = self.adjust_flow(df)
-
-                dfs[dendrometer_id] = (file, df.copy())
-                # print(df.head())
-            print("-------------------------------------------")
-
-        plotter = Plotter()
-        plotter.load_deployment_map()
-        pair_mapping = plotter.get_pair_mapping()
-
-        for _, (filename, df) in dfs.items():
-            plotter.save_plot(filename, df)
-            plotter.save_plot_vpd(filename, df)
-            plotter.save_csv(filename, df)
-
-        for pair in pair_mapping.values():
-            dend1, dend2 = pair
-            dend1, dend2 = str(dend1), str(dend2)
-
-            if dend1 in dfs and dend2 in dfs:
-                plotter.save_plot_pair(dfs[str(dend1)], dfs[str(dend2)])
-
+    
     def _initial_formatting(self, df):
         # Change column names
         df = df.rename(
-            columns={'Unnamed: 1_level_0': 'ID', 'Unnamed: 3_level_0': 'Timestamp', 'Unnamed: 7_level_0': 'SHT31D'})
+            columns={'Unnamed: 1_level_0': 'ID', 'Unnamed: 3_level_0': 'timestamp', 
+                     'Unnamed: 6_level_0': 'Analog', 'Unnamed: 8_level_0': 'SHT31', 'Unnamed: 9_level_0': 'SHT31',
+                     'Unnamed: 11_level_0': 'AS5311', 'Unnamed: 12_level_0': 'AS5311', 'Unnamed: 13_level_0': 'AS5311'})
 
         # Drop last column because it is empty
         df = df.iloc[:, :-1]
+        
+        df[('timestamp', 'time_local')] = pd.to_datetime(df[('timestamp', 'time_local')])
+        # df.set_index([('timestamp', 'time_local')], inplace=True)
+        
         return df
-
-    def _fix_timestamp(self, df: pd.DataFrame, dendrometer_id):
-        date_time_combined = pd.to_datetime(
-            df[("Timestamp", "date")] +
-            ' ' +
-            df[("Timestamp", "time")])
-
-        df.drop(columns=[
-                ("Timestamp", "date"),
-                ("Timestamp", "time")], inplace=True)
-
-        df.insert(2, "Time", date_time_combined)
-
-        """
-        dt.tz_localize(tz="GMT"): assigns the current time stamp to be in UTC
-        dt.tz_convert(tz="America/Los_Angeles"): converts UTC to Pacific Daylight Time (Data is from summer)
-        dt.tz_localize(None): strips it back down to naive timestamp so it doesn't have the -7 at the end
-        """
-        df["Time"] = pd.to_datetime(df["Time"])  \
-                       .dt.tz_localize(tz="UTC") \
-                       .dt.tz_convert(tz="America/Los_Angeles") \
-                       .dt.tz_localize(None)
-
-        if dendrometer_id in self.deployment_time_map:
-            time_delta = self.get_time_delta(
-                df,
-                self.deployment_time_map[dendrometer_id]
-            )
-
-            df.insert(3, "Adjusted Time", df["Time"] + time_delta)
-        return df
-
+    
+    
     def adjust_flow(self, df: pd.DataFrame) -> pd.DataFrame:
         prev_idx, prev_serial = 0, df.iloc[0][('AS5311', 'Serial_Value')]
         initial, wrap = df.iloc[0][('AS5311', 'Serial_Value')], 0
@@ -169,6 +115,42 @@ class DataFormatter:
             cur_idx += 1
 
         return df
+
+    def l1_formatting(self, folders: dict):
+        dfs = {}  # Dataframes
+        # self.load_deployment_time()
+
+        for folder in folders.keys():
+            print("-------------------------------------------")
+            print(folder)
+            for file in folders[folder]:
+                dendrometer_id = str(file).split("/")[-2]
+
+                df = pd.read_csv(Path.as_posix(file), header=[0, 1])
+                df = self._initial_formatting(df)
+                # df = self.adjust_flow(df)
+
+                dfs[dendrometer_id] = (file, df.copy())
+                # print(df.head())
+                print(df)
+            print("-------------------------------------------")
+        
+
+        plotter = Plotter()
+        # plotter.load_deployment_map()
+        # pair_mapping = plotter.get_pair_mapping()
+
+        for _, (filename, df) in dfs.items():
+            plotter.save_plot(filename, df)
+            # plotter.save_plot_vpd(filename, df)
+            # plotter.save_csv(filename, df)
+
+        # for pair in pair_mapping.values():
+        #     dend1, dend2 = pair
+        #     dend1, dend2 = str(dend1), str(dend2)
+        # 
+            # if dend1 in dfs and dend2 in dfs:
+            #     plotter.save_plot_pair(dfs[str(dend1)], dfs[str(dend2)])
 
 
 def main():
