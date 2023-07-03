@@ -80,13 +80,13 @@ class DataFormatter:
     
     
     def adjust_flow(self, df: pd.DataFrame) -> pd.DataFrame:
-        prev_idx, prev_serial = 0, df.iloc[0][('AS5311', 'Serial_Value')]
-        initial, wrap = df.iloc[0][('AS5311', 'Serial_Value')], 0
+        prev_idx, prev_serial = 0, df.iloc[0][('AS5311', 'pos_raw')]
+        initial, wrap = df.iloc[0][('AS5311', 'pos_raw')], 0
         df.at[0, 'Calculated Serial'] = 0
 
         cur_idx = 1
         while cur_idx < df.shape[0]:
-            cur_serial = df.iloc[cur_idx][('AS5311', 'Serial_Value')]
+            cur_serial = df.iloc[cur_idx][('AS5311', 'pos_raw')]
 
             change = (cur_serial - prev_serial)/(cur_idx - prev_idx)
             df.at[cur_idx, 'Change'] = change
@@ -128,7 +128,7 @@ class DataFormatter:
 
                 df = pd.read_csv(Path.as_posix(file), header=[0, 1])
                 df = self._initial_formatting(df)
-                # df = self.adjust_flow(df)
+                df = self.adjust_flow(df)
 
                 dfs[dendrometer_id] = (file, df.copy())
                 # print(df.head())
