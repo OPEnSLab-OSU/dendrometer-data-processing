@@ -65,8 +65,8 @@ class Plotter:
         fig1.grid(True)
 
 
-        fig1.plot(df[('timestamp', 'time_local')], df[('AS5311', 'pos_raw')])
-        fig1.plot(df[('timestamp', 'time_local')], df['Calculated Serial'])
+        fig1.plot(df['timestamp_time_local'], df['AS5311_pos_raw'])
+        # fig1.plot(df['timestamp_time_local'], df['Calculated Serial'])
         
         fig1.legend(['Raw data', 'Over/Under flow adjusted'])
         fig1.set_xlabel("Time")
