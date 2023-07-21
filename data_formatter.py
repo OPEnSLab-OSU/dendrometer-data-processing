@@ -16,7 +16,13 @@ class Status(Enum):
     ERROR   = "Error"
 
 DEFAULT_FILE_SIZE = 100
+ACCEPTABLE_SD     = 2.5     # Number of standar deviations for outlier adjustment
 
+
+#--------------------------
+# Column names
+DISPLACEMENT = "displacement_um"
+CHANGE       = "change_um"
 
 class DataFormatter:
     def __init__(self) -> None:
@@ -70,8 +76,18 @@ class DataFormatter:
 
         return folder_file_map
 
+    def _drop_button_pressed(self, df: pd.DataFrame):
+        # Find the last index where the button press happens
+        last_button_pressed = df.where(df["Button_Pressed?"] == True).last_valid_index()
+
+        df.drop(df.index[0: last_button_pressed + 1], inplace=True)
+
+        # Create a new index column and drop the old one
+        df.reset_index(drop=True, inplace=True)
+        
+        return df
     
-    def _initial_formatting(self, df):
+    def _initial_formatting(self, df: pd.DataFrame):
         # Change column names
         df = df.rename(
             columns={'Unnamed: 1_level_0': 'ID', 'Unnamed: 3_level_0': 'timestamp', 
@@ -79,70 +95,98 @@ class DataFormatter:
                      'Unnamed: 11_level_0': 'AS5311', 'Unnamed: 12_level_0': 'AS5311', 'Unnamed: 13_level_0': 'AS5311',
                      'Unnamed: 14_level_0': 'AS5311'})
 
+        # Rename columns from ("xyz", "xyz") to "xyz_xyz"
         df.columns = df.columns.map('_'.join)
 
         # Drop last column because it is empty
-        df = df.iloc[:, :-1]
+        df.drop(df.columns[-1], axis=1, inplace=True)
         
+        # Drop rows starting at index 0 up to the last row where button was pressed.
+        df = self._drop_button_pressed(df)
+        
+        # Change column to a timestamp object
         df['timestamp_time_local'] = pd.to_datetime(df['timestamp_time_local'])
-        # df.set_index(['timestamp_time_local'], inplace=True)
-                
+
         return df
     
-    
-    def calculate_change(self, df: pd.DataFrame):
-        df['change'] = df['AS5311_pos_raw'].diff()
-        # print(df)
-        return df
-    
-    def categorize_color(self, row):
-        if row['AS5311_Alignment'] == "Green":
-            return "Green"
-        elif row['AS5311_Alignment'] == "Yellow":
-            return "Yellow"
-        elif row['AS5311_Alignment'] == "Red":
-            return "Red"
-        elif row['AS5311_Alignment'] == 'Error':
-            return "Gray"
-    
-    def categorize_status(self, row, status: Status):
-        if status.value == row["AS5311_Alignment"]:
-            return row["AS5311_pos_avg"]
+    def separate_status(self, row, status: Status):
+        if status.value == row['AS5311_Alignment']:
+            return row['AS5311_pos_avg']
         return np.nan
     
     def color_graph(self, df: pd.DataFrame):
         fig = go.Figure()
-        x = df["timestamp_time_local"]
-        y = df["AS5311_pos_avg"]
-        # df['color'] = df.apply(lambda row: self.categorize_color(row), axis=1)
         
-        df["AS5311_pos_avg_GREEN"]  = df.apply(lambda row: self.categorize_status(row, Status.GREEN), axis=1)
-        df["AS5311_pos_avg_YELLOW"] = df.apply(lambda row: self.categorize_status(row, Status.YELLOW), axis=1)
-        df["AS5311_pos_avg_RED"]    = df.apply(lambda row: self.categorize_status(row, Status.RED), axis=1)
-        df["AS5311_pos_avg_ERROR"]  = df.apply(lambda row: self.categorize_status(row, Status.ERROR), axis=1)
+        df['AS5311_pos_avg_GREEN']  = df.apply(lambda row: self.separate_status(row, Status.GREEN), axis=1)
+        df['AS5311_pos_avg_YELLOW'] = df.apply(lambda row: self.separate_status(row, Status.YELLOW), axis=1)
+        df['AS5311_pos_avg_RED']    = df.apply(lambda row: self.separate_status(row, Status.RED), axis=1)
+        df['AS5311_pos_avg_ERROR']  = df.apply(lambda row: self.separate_status(row, Status.ERROR), axis=1)
         
-        # fig = px.line(df, x=x, y=["AS5311_pos_avg_GREEN", "AS5311_pos_avg_YELLOW", "AS5311_pos_avg_RED", "AS5311_pos_avg_ERROR"],
-        #               labels={
-        #               "x": "Date",
-        #               "value": "Serial Value",
-        #               "variable": "Alignment"
-        #               },
-        #               title="Time v Displacement")
+        fig.add_trace(go.Scatter(x=df['timestamp_time_local'], y=df['AS5311_pos_avg_GREEN'], name=Status.GREEN.name, line=dict(color = "green")))
+        fig.add_trace(go.Scatter(x=df['timestamp_time_local'], y=df['AS5311_pos_avg_YELLOW'], name=Status.YELLOW.name, line=dict(color = "#FECB52")))
+        fig.add_trace(go.Scatter(x=df['timestamp_time_local'], y=df['AS5311_pos_avg_RED'], name=Status.RED.name, line=dict(color = "red")))
+        fig.add_trace(go.Scatter(x=df['timestamp_time_local'], y=df['AS5311_pos_avg_ERROR'], name=Status.ERROR.name, line=dict(color = "black")))
         
-        fig.add_trace(go.Scatter(x=df["timestamp_time_local"], y=df["AS5311_pos_avg_GREEN"], name=Status.GREEN.name))
-        fig.add_trace(go.Scatter(x=df["timestamp_time_local"], y=df["AS5311_pos_avg_YELLOW"], name=Status.YELLOW.name))
-        fig.add_trace(go.Scatter(x=df["timestamp_time_local"], y=df["AS5311_pos_avg_RED"], name=Status.RED.name))
-        fig.add_trace(go.Scatter(x=df["timestamp_time_local"], y=df["AS5311_pos_avg_ERROR"], name=Status.ERROR.name))
-        
-        
-        fig.update_layout(title="Time vs Displacement", xaxis_title="Date", yaxis_title="Serial Value", legend_title="Status color")
+        fig.update_layout(title="Time vs Displacement all statuses", xaxis_title="Date", yaxis_title="Serial Value", legend_title="Status color")
         
         fig.update_traces(connectgaps=False)
-        fig.show()
-        print(df)
+        # fig.show()
+        
+        
+        # fig2 = go.Figure()
+        # fig2.add_trace(go.Scatter(x=df['timestamp_time_local'], y=df['AS5311_pos_avg'], name="Pos_avg"))
+        # fig2.add_trace(go.Scatter(x=df['timestamp_time_local'], y=df['AS5311_pos_avg'], name="outlier_flag", mode="markers", marker_color=df['outlier_flag']))
+        # fig2.show()
     
+    def check_stats(self, df: pd.DataFrame):
+        df[CHANGE] = df[DISPLACEMENT].diff()
 
+        fig1 = px.histogram(df, x=CHANGE)
+        # fig1.show()
+        fig2 = px.scatter(df, x="timestamp_time_local", y=CHANGE)
+        # fig2.show()
+
+
+        # -----------------------------------------------------
+        # Outlier methods
+        mean = df[CHANGE].mean()
+        sd = df[CHANGE].std()
+        print(f"Mean: {mean}, Cutoff: {sd}")
+
+        # Flag outliers
+        df['outlier_flag'] = df.apply(lambda row: self.find_outliers(row, mean, sd), axis=1)
+        num_outliers = df['outlier_flag'].count()
+        print("Number of outliers: ", num_outliers)
+        print("Adjusting outliers")
+        
+        
+        df['adjustment'] = 0.0
+        df.apply(lambda row: self.adjustment_values(df, row), axis=1)
+        df['adjusted_displacement'] = df[DISPLACEMENT] - df['adjustment']
+        
+        fig3 = go.Figure()
+        fig3.add_trace(go.Scatter(x=df['timestamp_time_local'], y=df[DISPLACEMENT], name=DISPLACEMENT))
+        fig3.add_trace(go.Scatter(x=df['timestamp_time_local'], y=df['adjusted_displacement'], name="Adjusted"))
+        fig3.show()
+        
+    def find_outliers(self, row, mean, cutoff):
+        # Skip rows where the change value is NaN
+        if pd.isna(row[CHANGE]):
+            return np.nan
+        
+        if abs(row[CHANGE] - mean) > ACCEPTABLE_SD * cutoff:
+            return True
+        
+        return np.nan
     
+    def adjustment_values(self, df, row):
+        if row.name == 0:
+            return 0
+        
+        if row['outlier_flag'] == True:
+            adjustment = row[CHANGE]
+            df.loc[row.name:, 'adjustment'] += adjustment
+
     def adjust_flow(self, df: pd.DataFrame) -> pd.DataFrame:
         prev_idx, prev_serial = 0, df.iloc[0]['AS5311_pos_raw']
         initial, wrap = df.iloc[0]['AS5311_pos_raw'], 0
@@ -202,7 +246,7 @@ class DataFormatter:
                 df = pd.read_csv(Path.as_posix(file), header=[0, 1])
                 df = self._initial_formatting(df)
                 df = self.adjust_flow(df)
-                df = self.calculate_change(df)
+                self.check_stats(df)
                 self.color_graph(df)
     
                 dfs[dendrometer_id] = (file, df.copy())
